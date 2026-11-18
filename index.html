@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DeskBuddy Camera</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 12px; background: #111; color: #eee; }
+    h2 { margin: 6px 0 10px; font-size: 20px; }
+    video { width: 100%; max-height: 60vh; background: #000; border-radius: 8px; }
+    button { font-size: 18px; padding: 12px 18px; margin: 8px 6px 8px 0; border: 0; border-radius: 8px; background: #2d7ff9; color: #fff; }
+    button:disabled { background: #555; }
+    #status { margin-top: 8px; font-size: 15px; white-space: pre-wrap; line-height: 1.4; }
+    .ok { color: #7fe07f; }
+    .bad { color: #ff7b7b; }
+  </style>
+</head>
+<body>
+  <h2>DeskBuddy Camera Test</h2>
+  <video id="cam" autoplay playsinline muted></video>
+  <div>
+    <button id="startBtn">Start camera</button>
+    <button id="stopBtn" disabled>Stop</button>
+  </div>
+  <div id="status"></div>
+
+  <script>
+    const video = document.getElementById('cam');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+    let stream = null;
+
+    function setStatus(text, cls) {
+      statusEl.className = cls || '';
+      statusEl.textContent = text;
+    }
+
+    // Show what the browser allows before trying the camera
+    function checkEnvironment() {
+      const lines = [];
+      lines.push('Page address: ' + location.href);
+      lines.push('Secure page: ' + (window.isSecureContext ? 'YES' : 'NO'));
+      lines.push('Camera API: ' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'available' : 'missing'));
+      return lines.join('\n');
+    }
+
+    async function startCamera() {
+      if (!window.isSecureContext) {
+        setStatus(checkEnvironment() +
+          '\n\nCamera blocked: this page is not secure (plain http).\n' +
+          'Open it over https (for example GitHub Pages), or enable the Chrome flag described below.',
+          'bad');
+        return;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Camera API not supported by this browser. Update Chrome.', 'bad');
+        return;
+      }
+      try {
+        // Prefer the back camera, which faces forward on the robot
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        setStatus(checkEnvironment() + '\n\nCamera running.', 'ok');
+      } catch (err) {
+        setStatus(checkEnvironment() + '\n\nCamera error: ' + err.name + '\n' + err.message, 'bad');
+      }
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      setStatus(checkEnvironment() + '\n\nCamera stopped.');
+    }
+
+    startBtn.addEventListener('click', startCamera);
+    stopBtn.addEventListener('click', stopCamera);
+    setStatus(checkEnvironment());
+  </script>
+</body>
+</html>
